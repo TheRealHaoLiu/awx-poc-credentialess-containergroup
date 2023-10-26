@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  gather_facts: no
+  collections:
+    - kubernetes.core
+    - awx.awx
+  vars:
+    awx_name: awx
+    awx_namespace: awx
+    container_group_namespace: awx-job
+  tasks:
+  - name: Create container group namespace
+    kubernetes.core.k8s:
+      state: present
+      api_version: v1
+      kind: Namespace
+      name: "{{ container_group_namespace }}"
+  - name: Create role that contains permission needed for AWX to create job pod in container group namespace
+    kubernetes.core.k8s:
+      template: role.yml.j2
+      state: present
+  - name: Create rolebinding to allow AWX ServiceAccount to create job pod in container group namespace
+    kubernetes.core.k8s:
+      template: rolebinding.yml.j2
+      state: present
+  - name: Create Container Group in AWX
+    awx.awx.instance_group:
+      name: "{{ container_group_namespace }}"
+      is_container_group: true
+      pod_spec_override: "{{ lookup('template', 'container_group_pod_spec.yml.j2') }}"
+      state: present
